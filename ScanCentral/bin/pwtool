@@ -1,0 +1,78 @@
+#!/bin/sh
+
+#/******************************************************************************
+#* (C) Copyright 2016 Micro Focus or one of its affiliates. All Rights Reserved.
+#* The only warranties for products and services of Micro Focus and its affiliates and licensors
+#* ("Micro Focus") are set forth in the express warranty statements accompanying such products
+#* and services. Nothing herein should be construed as constituting an additional warranty.
+#* Micro Focus shall not be liable for technical or editorial errors or omissions contained herein.
+#* The information contained herein is subject to change without notice.
+#* Confidential computer software. Except as specifically indicated otherwise, a valid license
+#* from Micro Focus is required for possession, use or copying. Consistent with FAR 12.211 and 12.212,
+#* Commercial Computer Software, Computer Software Documentation, and Technical Data for Commercial
+#* Items are licensed to the U.S. Government under vendor's standard commercial license.
+#*******************************************************************************/
+
+# Detect base directory and fortify home
+PRG="$0"
+while [ -h "$PRG" ] ; do
+  ls="$(ls -ld "$PRG")"
+  link="$(expr "$ls" : '.*-> \(.*\)$')"
+  if expr "$link" : '.*/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG="$(dirname "$PRG")/$link"
+  fi
+done
+BASE_DIR="$(dirname "$PRG")"
+FORTIFY_HOME="$BASE_DIR/.."
+
+# Detect path to pwtool jar
+PWTOOL_JAR=pwtool.jar
+PWTOOL_JAR_PATH="$FORTIFY_HOME/Core/lib/exe/$PWTOOL_JAR"
+if [ ! -f "$PWTOOL_JAR_PATH" ]; then
+    PWTOOL_JAR_PATH="$BASE_DIR/$PWTOOL_JAR"
+    if [ ! -f "$PWTOOL_JAR_PATH" ]; then
+        echo "Unable to find $PWTOOL_JAR"
+        exit 1
+    fi
+fi
+
+# Detect JRE
+JAVA_CMD="$FORTIFY_HOME/jre/bin/java"
+if [ ! -x "$JAVA_CMD" ]; then
+    JAVA_CMD="java"
+fi
+
+# Check for decode option
+DECODE=false
+if [ "$1" = "-d" ]; then
+    DECODE=true
+    shift
+fi
+
+# Get keys filename
+if [ -n "$1" ]; then
+    KEYS_FILE="$1"
+    shift
+fi
+
+# Check for common help options
+case "$KEYS_FILE" in
+    /\?|-\?|-h|--help)
+        KEYS_FILE=""
+        ;;
+esac
+
+# Check for excess arguments and if keys filename has been provided
+if [ $# -gt 0 -o -z "$KEYS_FILE" ]; then
+    echo "Usage: $0 [-d] FILENAME"
+    echo "  -d          - switch to decryption mode"
+    echo "  FILENAME    - path to pwtool keys file; if the file exists,"
+    echo "                stored key will be read,"
+    echo "                otherwise a new key will be generated and stored"
+    exit 1
+fi
+
+# Everything is ok, execute
+"$JAVA_CMD" -Dpwtool_keys_file="$KEYS_FILE" -Dpwtool_decode="$DECODE" -jar "$PWTOOL_JAR_PATH"

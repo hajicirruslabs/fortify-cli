@@ -1,0 +1,106 @@
+#!/bin/bash
+
+#/******************************************************************************
+#* (C) Copyright 2008-2022 Micro Focus or one of its affiliates. All Rights Reserved.
+#* The only warranties for products and services of Micro Focus and its affiliates and licensors
+#* (“Micro Focus”) are set forth in the express warranty statements accompanying such products
+#* and services. Nothing herein should be construed as constituting an additional warranty.
+#* Micro Focus shall not be liable for technical or editorial errors or omissions contained herein.
+#* The information contained herein is subject to change without notice.
+#* Confidential computer software. Except as specifically indicated otherwise, a valid license
+#* from Micro Focus is required for possession, use or copying. Consistent with FAR 12.211 and 12.212,
+#* Commercial Computer Software, Computer Software Documentation, and Technical Data for Commercial
+#* Items are licensed to the U.S. Government under vendor's standard commercial license.
+#*******************************************************************************/
+
+#
+#The base directory path
+#
+PRG="$0"
+while [ -h "$PRG" ] ; do
+  ls=`ls -ld "$PRG"`
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '.*/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG=`dirname "$PRG"`/"$link"
+  fi
+done
+BASE_DIR=`dirname "$PRG"`
+FORTIFY_HOME="${BASE_DIR}/.."
+
+showErrorMessage() {
+  echo "  ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
+  ERROR: SCANCENTRAL_JAVA_HOME is not set.
+  If your project requires Java 8:
+    1. Set the JAVA_HOME variable in your environment to match the
+       location of your Java 8.
+    2. Set the SCANCENTRAL_JAVA_HOME variable in your environment to match the
+       location of your Java 11 or higher.
+  If you scan non Java project or your project requires Java 11 or higher:
+       Set the JAVA_HOME or SCANCENTRAL_JAVA_HOME variable in your environment
+       to match the location of your Java 11 or higher."
+  exit 1
+}
+
+checkJavaAtJavaHome() {
+  if [ -n "$JAVA_HOME" ] ; then
+    JAVA_CMD="${JAVA_HOME}/bin/java"
+    if [ ! -x "$JAVA_CMD" ] ; then
+      showErrorMessage
+    fi
+  else
+    JAVA_CMD="java"
+  fi
+}
+
+checkJava17AtAzureHostedAgent() {
+  if [ -n "$JAVA_HOME_17_X64" ] ; then
+    JAVA_CMD="${JAVA_HOME_17_X64}/bin/java"
+    if [ ! -x "$JAVA_CMD" ] ; then
+      checkJavaAtJavaHome
+      true
+    fi
+  else
+    checkJavaAtJavaHome
+  fi
+}
+
+checkJava11AtAzureHostedAgent() {
+  if [ -n "$JAVA_HOME_11_X64" ] ; then
+    JAVA_CMD="$JAVA_HOME_11_X64/bin/java"
+    if [ ! -x "$JAVA_CMD" ] ; then
+      checkJava17AtAzureHostedAgent
+    fi
+  else
+    checkJava17AtAzureHostedAgent
+  fi
+}
+
+checkJavaAtCentralJavaHome() {
+  if [ -n "$SCANCENTRAL_JAVA_HOME" ] ; then
+    JAVA_CMD="$SCANCENTRAL_JAVA_HOME/bin/java"
+    if [ ! -x "$JAVA_CMD" ] ; then
+      showErrorMessage
+    fi
+  else
+    checkJava11AtAzureHostedAgent
+  fi
+}
+
+setUpJava() {
+  JAVA_CMD="${FORTIFY_HOME}/jre/bin/java"
+  if [ ! -x "$JAVA_CMD" ] ; then
+    checkJavaAtCentralJavaHome
+  fi
+}
+
+setUpJava
+
+WORKER_PROPS="${FORTIFY_HOME}/Core/config/worker.properties"
+
+if [ -n "$CLOUDSCAN_LOG" ]; then
+  echo "\$CLOUDSCAN_LOG variable is no longer supported. Use \$SCANCENTRAL_LOG variable instead."
+fi
+
+$JAVA_CMD -Dscancentral.installRoot="${FORTIFY_HOME}" -Dlog4j.dir="${SCANCENTRAL_LOG}" -jar "${FORTIFY_HOME}/Core/lib/scancentral-launcher-22.2.1.0003.jar" "$@"

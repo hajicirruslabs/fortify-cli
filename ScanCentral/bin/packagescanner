@@ -1,0 +1,55 @@
+#!/bin/bash
+
+#/******************************************************************************
+#* (C) Copyright 2008-2022 Micro Focus or one of its affiliates. All Rights Reserved.
+#* The only warranties for products and services of Micro Focus and its affiliates and licensors
+#* (“Micro Focus”) are set forth in the express warranty statements accompanying such products
+#* and services. Nothing herein should be construed as constituting an additional warranty.
+#* Micro Focus shall not be liable for technical or editorial errors or omissions contained herein.
+#* The information contained herein is subject to change without notice.
+#* Confidential computer software. Except as specifically indicated otherwise, a valid license
+#* from Micro Focus is required for possession, use or copying. Consistent with FAR 12.211 and 12.212,
+#* Commercial Computer Software, Computer Software Documentation, and Technical Data for Commercial
+#* Items are licensed to the U.S. Government under vendor's standard commercial license.
+#*******************************************************************************/
+
+#
+#The base directory path
+#
+PRG="$0"
+while [ -h "$PRG" ] ; do
+  ls=`ls -ld "$PRG"`
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '.*/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG=`dirname "$PRG"`/"$link"
+  fi
+done
+BASE_DIR=`dirname "$PRG"`
+FORTIFY_HOME="${BASE_DIR}/.."
+
+JAVA_CMD="${FORTIFY_HOME}/jre/bin/java"
+if [ ! -f "$JAVA_CMD" ] ; then
+	# Determine the Java command to use to start the JVM.
+	if [ -n "$JAVA_HOME" ] ; then
+		if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+			# IBM's JDK on AIX uses strange locations for the executables
+			JAVA_CMD="$JAVA_HOME/jre/sh/java"
+		else
+			JAVA_CMD="$JAVA_HOME/bin/java"
+		fi
+		if [ ! -x "$JAVA_CMD" ] ; then
+			echo "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
+	Please set the JAVA_HOME variable in your environment to match the
+	location of your Java installation."
+	        exit 1
+		fi
+	else
+		JAVA_CMD="java"
+	fi
+fi
+
+SCANNER_LOG="$HOME/.fortify/scancentral-scanner/log"
+
+$JAVA_CMD -Dscancentral.installRoot="%FORTIFY_HOME%" -Dlog4j.dir="${SCANNER_LOG}" -jar "${FORTIFY_HOME}/Core/lib/exe/package-scanner-exe.jar" "$@"
